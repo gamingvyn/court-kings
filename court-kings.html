@@ -32,7 +32,7 @@ canvas.height = height;
 
 const keys = {};
 const players = [];
-const ball = { x: width/2, y: height/2, radius: 12, heldBy: null, vy: 0, dribbleOffset: 0 };
+const ball = { x: width/2, y: height/2, radius: 12, heldBy: null, vx: 0, vy: 0, dribbleOffset: 0 };
 let shieldActive = false;
 let shieldTimer = 0;
 
@@ -50,12 +50,14 @@ class Player {
     this.height = 100;
     this.onGround = true;
     this.isAI = isAI;
-    this.ability = ability; // "mega", "shield", "alley"
+    this.ability = ability;
     this.jumpCooldown = 0;
     this.shootCooldown = 0;
     this.abilityCooldown = 0;
     this.bobOffset = 0;
     this.jumpPressed = false;
+    this.animFrame = 0;
+    this.facingRight = true;
   }
 
   update() {
@@ -64,29 +66,51 @@ class Player {
     this.x += this.vx;
     this.y += this.vy;
 
+    if (this.vx > 0) this.facingRight = true;
+    else if (this.vx < 0) this.facingRight = false;
+
     if (!this.onGround) this.vy += 0.8;
 
     if (this.y + this.height >= height-50) {
       this.y = height-50-this.height;
-      this.onGround = true;
-      if (this.vy > 0) this.vy = 0;
-      if (ball.heldBy === this && this.jumpPressed) {
-        releaseBall(this, 0.5);
+      if (!this.onGround && this.jumpPressed) {
+        if (!this.isAI) releaseBall(this, 0.5); // smooth landing release for user
         this.jumpPressed = false;
       }
+      this.onGround = true;
+      this.vy = 0;
     } else this.onGround = false;
 
-    this.bobOffset = this.vx !== 0 ? Math.sin(Date.now()/100)*5 : 0;
+    // Animate running legs
+    if (this.vx !== 0) this.animFrame = (this.animFrame + 0.2) % 4;
+    else this.animFrame = 0;
 
+    // Ball follows player
     if (ball.heldBy === this) {
       ball.x = this.x + this.width/2;
-      ball.y = this.y + this.height/2 + this.bobOffset - ball.dribbleOffset;
-      ball.dribbleOffset = (this.vx!==0 || !this.onGround) ? Math.abs(Math.sin(Date.now()/100)*10) : 0;
+      ball.y = this.y + this.height/2 - ball.dribbleOffset;
+      ball.dribbleOffset = (this.vx !== 0 || !this.onGround) ? Math.abs(Math.sin(Date.now()/100)*10) : 0;
     }
   }
 
   draw() {
-    ctx.drawImage(playerImage, this.x, this.y + this.bobOffset, this.width, this.height);
+    // Draw player rectangle as placeholder
+    ctx.save();
+    ctx.translate(this.x + this.width/2, this.y + this.height/2);
+    ctx.scale(this.facingRight ? 1 : -1,1);
+    ctx.drawImage(playerImage, -this.width/2, -this.height/2, this.width, this.height);
+    ctx.restore();
+
+    // Running leg animation (simple)
+    if (this.vx !== 0) {
+      ctx.strokeStyle='black';
+      ctx.lineWidth=4;
+      ctx.beginPath();
+      let legOffset = Math.sin(this.animFrame*Math.PI/2)*10;
+      ctx.moveTo(this.x + this.width/2, this.y + this.height);
+      ctx.lineTo(this.x + this.width/2 + legOffset, this.y + this.height + 20);
+      ctx.stroke();
+    }
   }
 
   aiBehavior() {
@@ -129,20 +153,40 @@ function shootBall(player) {
 
 function activateAbility(player) {
   if (!player.ability || player.abilityCooldown > 0) return;
+
   if (player.ability === 'mega') {
-    ball.heldBy = player;
-    player.y -= 200; // fly towards hoop
-    ball.x = hoop.x;
-    ball.y = hoop.y - 30;
+    let startY = player.y;
+    let targetY = hoop.y - 50;
+    let step = () => {
+      if (player.y > targetY) {
+        player.y -= 15;
+        ball.x = player.x + player.width/2;
+        ball.y = player.y + player.height/2;
+        requestAnimationFrame(step);
+      } else {
+        releaseBall(player,1);
+      }
+    };
+    step();
   } else if (player.ability === 'shield') {
     shieldActive = true;
-    shieldTimer = 200; // frames
+    shieldTimer = 200;
   } else if (player.ability === 'alley') {
-    ball.heldBy = player;
-    player.y = hoop.y - 100; // teleport above hoop
-    ball.x = hoop.x;
-    ball.y = hoop.y - 50;
+    let startY = player.y;
+    let targetY = hoop.y - 100;
+    let step = () => {
+      if (player.y > targetY) {
+        player.y -= 20;
+        ball.x = player.x + player.width/2;
+        ball.y = player.y + player.height/2;
+        requestAnimationFrame(step);
+      } else {
+        releaseBall(player,1);
+      }
+    };
+    step();
   }
+
   player.abilityCooldown = 300;
 }
 
@@ -182,7 +226,6 @@ function gameLoop() {
   user.jumpCooldown = Math.max(0, user.jumpCooldown-1);
   user.abilityCooldown = Math.max(0, user.abilityCooldown-1);
 
-  // Update players
   for (let p of players) p.update();
 
   // Ball physics
@@ -197,7 +240,6 @@ function gameLoop() {
       if (Math.abs(ball.vy)<1) ball.vy = 0;
     }
 
-    // Check hoop collision (ignore if shield active)
     if (!shieldActive &&
         ball.x + ball.radius > hoop.x && ball.x - ball.radius < hoop.x+hoop.width &&
         ball.y + ball.radius > hoop.y && ball.y - ball.radius < hoop.y+hoop.height) {
@@ -210,7 +252,7 @@ function gameLoop() {
     }
   }
 
-  // Shield timer
+  // Shield
   if (shieldActive) {
     shieldTimer--;
     if (shieldTimer<=0) shieldActive=false;
@@ -218,17 +260,17 @@ function gameLoop() {
     ctx.fillRect(hoop.x-5, hoop.y-5, hoop.width+10, hoop.height+10);
   }
 
-  // Draw hoop
+  // Hoop
   ctx.fillStyle='orange';
   ctx.fillRect(hoop.x, hoop.y, hoop.width, hoop.height);
 
-  // Draw ball
+  // Ball
   ctx.fillStyle='yellow';
   ctx.beginPath();
   ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI*2);
   ctx.fill();
 
-  // Draw players
+  // Players
   for (let p of players) p.draw();
 
   requestAnimationFrame(gameLoop);
