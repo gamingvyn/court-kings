@@ -5,18 +5,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Court Kings</title>
 <style>
-  html, body {
-    margin: 0;
-    padding: 0;
-    overflow: hidden;
-    background: #222;
-    touch-action: none;
-  }
-  canvas {
-    display: block;
-    margin: 0 auto;
-    background: #4CAF50;
-  }
+html, body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: #222;
+  touch-action: none;
+}
+canvas {
+  display: block;
+  margin: 0 auto;
+  background: #4CAF50;
+}
 </style>
 </head>
 <body>
@@ -32,13 +32,14 @@ canvas.height = height;
 
 const keys = {};
 const players = [];
-const ball = { x: width/2, y: height/2, radius: 12, heldBy: null, vy: 0, bouncing: true, dribbleOffset: 0 };
-const hoop = { x: width-150, y: height/2 - 50, width: 10, height: 100 };
+const ball = { x: width/2, y: height/2, radius: 12, heldBy: null, vy: 0, dribbleOffset: 0 };
+let shieldActive = false;
+let shieldTimer = 0;
 
+const hoop = { x: width-150, y: height/2-50, width: 10, height: 100 };
 const playerImage = new Image();
-playerImage.src = 'player.png'; // single player image, facing right, transparent background
+playerImage.src = 'player.png'; // single player image, transparent background
 
-// Player constructor
 class Player {
   constructor(x, y, isAI=false, ability=null) {
     this.x = x;
@@ -58,43 +59,29 @@ class Player {
   }
 
   update() {
-    // AI behavior
     if (this.isAI) this.aiBehavior();
 
-    // Movement
     this.x += this.vx;
     this.y += this.vy;
 
-    // Gravity
     if (!this.onGround) this.vy += 0.8;
 
-    // Ground collision
-    if (this.y + this.height >= height - 50) {
-      this.y = height - 50 - this.height;
+    if (this.y + this.height >= height-50) {
+      this.y = height-50-this.height;
       this.onGround = true;
       if (this.vy > 0) this.vy = 0;
-      // Auto-release ball if jumped without shooting
       if (ball.heldBy === this && this.jumpPressed) {
-        releaseBall(this, 0.5); // reduce scoring chance
+        releaseBall(this, 0.5);
         this.jumpPressed = false;
       }
-    } else {
-      this.onGround = false;
-    }
+    } else this.onGround = false;
 
-    // Bobbing for leg animation
-    if (this.vx !== 0) this.bobOffset = Math.sin(Date.now()/100)*5;
-    else this.bobOffset = 0;
+    this.bobOffset = this.vx !== 0 ? Math.sin(Date.now()/100)*5 : 0;
 
-    // Ball holding
     if (ball.heldBy === this) {
       ball.x = this.x + this.width/2;
       ball.y = this.y + this.height/2 + this.bobOffset - ball.dribbleOffset;
-      if (this.vx !== 0 || !this.onGround) {
-        ball.dribbleOffset = Math.abs(Math.sin(Date.now()/100)*10);
-      } else {
-        ball.dribbleOffset = 0;
-      }
+      ball.dribbleOffset = (this.vx!==0 || !this.onGround) ? Math.abs(Math.sin(Date.now()/100)*10) : 0;
     }
   }
 
@@ -104,23 +91,17 @@ class Player {
 
   aiBehavior() {
     if (!ball.heldBy) {
-      // move toward ball
-      if (ball.x < this.x) this.vx = -3;
-      else if (ball.x > this.x) this.vx = 3;
-      else this.vx = 0;
+      this.vx = ball.x < this.x ? -3 : 3;
     } else if (ball.heldBy !== this) {
-      // defend
-      if (ball.heldBy.x < this.x) this.vx = -3;
-      else this.vx = 3;
-      // block if near
+      this.vx = ball.heldBy.x < this.x ? -3 : 3;
       if (Math.abs(this.x - ball.heldBy.x) < 50 && this.onGround && Math.random() < 0.01) {
-        this.vy = -15; // jump to block
+        this.vy = -15;
         this.onGround = false;
       }
     } else {
       this.vx = 0;
-      // auto shoot if near hoop
       if (Math.abs(this.x - hoop.x) < 50 && this.onGround) shootBall(this);
+      if (this.ability && this.abilityCooldown <= 0 && Math.random()<0.002) activateAbility(this);
     }
   }
 }
@@ -136,73 +117,60 @@ function releaseBall(player, accuracy=1) {
 }
 
 function shootBall(player) {
-  if (ball.heldBy === player) {
-    ball.heldBy = null;
-    let dx = hoop.x - player.x;
-    let dy = hoop.y - player.y;
-    let dist = Math.sqrt(dx*dx + dy*dy);
-    let chance = dist < 200 ? 0.8 : 0.6; // 2pt vs 3pt range
-    let power = 12 * chance;
-    ball.vx = dx/dist*power;
-    ball.vy = dy/dist*power;
-  }
+  if (ball.heldBy !== player) return;
+  ball.heldBy = null;
+  let dx = hoop.x - player.x;
+  let dy = hoop.y - player.y;
+  let dist = Math.sqrt(dx*dx + dy*dy);
+  let chance = dist < 200 ? 0.8 : 0.6;
+  ball.vx = dx/dist*12*chance;
+  ball.vy = dy/dist*12*chance;
 }
 
 function activateAbility(player) {
-  if (!player.ability) return;
-  if (player.abilityCooldown > 0) return;
+  if (!player.ability || player.abilityCooldown > 0) return;
   if (player.ability === 'mega') {
+    ball.heldBy = player;
+    player.y -= 200; // fly towards hoop
     ball.x = hoop.x;
     ball.y = hoop.y - 30;
-    ball.vx = 0;
-    ball.vy = 0;
   } else if (player.ability === 'shield') {
-    // temporary shield placeholder
+    shieldActive = true;
+    shieldTimer = 200; // frames
   } else if (player.ability === 'alley') {
+    ball.heldBy = player;
+    player.y = hoop.y - 100; // teleport above hoop
     ball.x = hoop.x;
-    ball.y = hoop.y - 100;
-    ball.vx = 0;
-    ball.vy = 0;
+    ball.y = hoop.y - 50;
   }
   player.abilityCooldown = 300;
 }
 
 // Input
-window.addEventListener('keydown', e => {
-  keys[e.key] = true;
-});
-window.addEventListener('keyup', e => {
-  keys[e.key] = false;
-});
+window.addEventListener('keydown', e => keys[e.key] = true);
+window.addEventListener('keyup', e => keys[e.key] = false);
 
 // Touch for mobile
 let touchX = null;
-canvas.addEventListener('touchstart', e => {
-  let t = e.touches[0];
-  touchX = t.clientX;
-});
+canvas.addEventListener('touchstart', e => touchX = e.touches[0].clientX);
 canvas.addEventListener('touchmove', e => {
-  let t = e.touches[0];
-  let dx = t.clientX - touchX;
+  let dx = e.touches[0].clientX - touchX;
   keys['ArrowRight'] = dx > 10;
   keys['ArrowLeft'] = dx < -10;
 });
-canvas.addEventListener('touchend', e => {
-  keys['ArrowRight'] = keys['ArrowLeft'] = false;
-});
+canvas.addEventListener('touchend', e => keys['ArrowRight'] = keys['ArrowLeft'] = false);
 
 // Players
-players.push(new Player(100, height-150, false, 'mega'));
-players.push(new Player(width-200, height-150, true, 'shield'));
+players.push(new Player(100, height-150, false, 'mega')); // user has mega dunk
+players.push(new Player(width-200, height-150, true, 'shield')); // AI has shield
 
 function gameLoop() {
   ctx.clearRect(0, 0, width, height);
 
   let user = players[0];
-  user.vx = 0;
-  if (keys['ArrowLeft']) user.vx = -5;
-  if (keys['ArrowRight']) user.vx = 5;
-  if (keys['ArrowUp'] && user.onGround && user.jumpCooldown <= 0) {
+  user.vx = keys['ArrowRight'] ? 5 : keys['ArrowLeft'] ? -5 : 0;
+
+  if (keys['ArrowUp'] && user.onGround && user.jumpCooldown<=0) {
     user.vy = -15;
     user.onGround = false;
     user.jumpPressed = true;
@@ -212,7 +180,6 @@ function gameLoop() {
   if (keys['z']) activateAbility(user);
 
   user.jumpCooldown = Math.max(0, user.jumpCooldown-1);
-  user.shootCooldown = Math.max(0, user.shootCooldown-1);
   user.abilityCooldown = Math.max(0, user.abilityCooldown-1);
 
   // Update players
@@ -220,23 +187,43 @@ function gameLoop() {
 
   // Ball physics
   if (!ball.heldBy) {
-    ball.vy += 0.5;
+    if (!shieldActive) ball.vy += 0.5;
     ball.x += ball.vx;
     ball.y += ball.vy;
 
     if (ball.y + ball.radius > height-50) {
       ball.y = height-50-ball.radius;
       ball.vy *= -0.5;
-      if (Math.abs(ball.vy) < 1) ball.vy = 0;
+      if (Math.abs(ball.vy)<1) ball.vy = 0;
+    }
+
+    // Check hoop collision (ignore if shield active)
+    if (!shieldActive &&
+        ball.x + ball.radius > hoop.x && ball.x - ball.radius < hoop.x+hoop.width &&
+        ball.y + ball.radius > hoop.y && ball.y - ball.radius < hoop.y+hoop.height) {
+      ball.heldBy = null;
+      ball.x = width/2;
+      ball.y = height/2;
+      ball.vx = 0;
+      ball.vy = 0;
+      console.log("SCORE!");
     }
   }
 
+  // Shield timer
+  if (shieldActive) {
+    shieldTimer--;
+    if (shieldTimer<=0) shieldActive=false;
+    ctx.fillStyle='rgba(0,0,255,0.5)';
+    ctx.fillRect(hoop.x-5, hoop.y-5, hoop.width+10, hoop.height+10);
+  }
+
   // Draw hoop
-  ctx.fillStyle = 'orange';
+  ctx.fillStyle='orange';
   ctx.fillRect(hoop.x, hoop.y, hoop.width, hoop.height);
 
   // Draw ball
-  ctx.fillStyle = 'yellow';
+  ctx.fillStyle='yellow';
   ctx.beginPath();
   ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI*2);
   ctx.fill();
@@ -249,12 +236,12 @@ function gameLoop() {
 
 gameLoop();
 
-// Fullscreen
+// Fullscreen toggle
 function toggleFullscreen() {
   if (!document.fullscreenElement) canvas.requestFullscreen();
   else document.exitFullscreen();
 }
-document.addEventListener('keydown', e => { if (e.key === 'f') toggleFullscreen(); });
+document.addEventListener('keydown', e => { if(e.key==='f') toggleFullscreen(); });
 
 // Resize
 window.addEventListener('resize', () => {
