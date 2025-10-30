@@ -1,96 +1,42 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Court Kings - Play Online</title>
-  <link rel="icon" href="../images/favicon.png" sizes="32x32">
-  <meta name="description" content="Play Court Kings online - 1v1 Basketball Game">
-
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      height: 100%;
-      width: 100%;
-      overflow: hidden;
-      background-color: #000;
-    }
-
-    #game-container {
-      position: relative;
-      width: 100%;
-      height: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    #game-iframe {
-      width: 100%;
-      height: 100%;
-      border: none;
-    }
-
-    /* Fullscreen button only for desktop */
-    #fullscreen-btn {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      z-index: 1000;
-      padding: 10px 15px;
-      font-size: 16px;
-    }
-
-    @media (pointer: coarse) {
-      /* Hide fullscreen button on touch devices */
-      #fullscreen-btn {
-        display: none;
-      }
-    }
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no" />
+<title>Court Kings</title>
+<link rel="icon" href="assets/player1.png" />
+<link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
-  <div id="game-container">
-    <iframe id="game-iframe" src="https://htmlxm.github.io/h/basketball-stars" allowfullscreen allow="autoplay; fullscreen"></iframe>
-    <button id="fullscreen-btn">Fullscreen</button>
+
+<!-- Fullscreen toggle (desktop fallback) -->
+<button id="fsBtn" class="ui-btn">Fullscreen</button>
+
+<!-- Touch controls (mobile) -->
+<div id="touch-controls" aria-hidden="true">
+  <div id="dpad">
+    <div class="tbtn" id="btnLeft">◀</div>
+    <div class="tbtn" id="btnUp">▲</div>
+    <div class="tbtn" id="btnDown">▼</div>
+    <div class="tbtn" id="btnRight">▶</div>
   </div>
+  <div id="actionBtns">
+    <div class="tbtn big" id="btnShoot">X</div>
+    <div class="tbtn" id="btnAbility">E</div>
+  </div>
+</div>
 
-  <script>
-    const iframe = document.getElementById('game-iframe');
-    const fullscreenBtn = document.getElementById('fullscreen-btn');
-    const gameContainer = document.getElementById('game-container');
+<!-- Canvas -->
+<canvas id="gameCanvas" tabindex="0" aria-label="Court Kings game canvas"></canvas>
 
-    // Function to request fullscreen
-    function goFullscreen() {
-      if (document.fullscreenElement) return;
-      if (gameContainer.requestFullscreen) {
-        gameContainer.requestFullscreen();
-      } else if (gameContainer.webkitRequestFullscreen) { /* Safari */
-        gameContainer.webkitRequestFullscreen();
-      } else if (gameContainer.msRequestFullscreen) { /* IE11 */
-        gameContainer.msRequestFullscreen();
-      }
-    }
+<!-- Info overlay (score, cooldowns) -->
+<div id="hud">
+  <div id="scoreboard">You: 0 — AI: 0</div>
+  <div id="abilityIndicator">Ability: None</div>
+</div>
 
-    // Toggle fullscreen on button click (desktop only)
-    fullscreenBtn.addEventListener('click', () => {
-      if (document.fullscreenElement) {
-        document.exitFullscreen();
-      } else {
-        goFullscreen();
-      }
-    });
-
-    // Auto fullscreen on load (mobile & desktop)
-    window.addEventListener('load', () => {
-      setTimeout(() => goFullscreen(), 500); // small delay to allow page rendering
-      iframe.setAttribute('tabindex', '0');
-      iframe.focus();
-    });
-
-    // Keep iframe focused for keyboard input
-    window.addEventListener('click', () => iframe.focus());
-  </script>
+<!-- scripts -->
+<script src="js/players.js"></script>
+<script src="js/court-kings.js"></script>
 </body>
 </html>
