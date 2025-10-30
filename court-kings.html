@@ -32,11 +32,11 @@ canvas.height = height;
 
 const keys = {};
 const players = [];
-const ball = { x: width/2, y: height/2, radius: 12, heldBy: null, vy: 0, bouncing: true };
+const ball = { x: width/2, y: height/2, radius: 12, heldBy: null, vy: 0, bouncing: true, dribbleOffset: 0 };
 const hoop = { x: width-150, y: height/2 - 50, width: 10, height: 100 };
 
 const playerImage = new Image();
-playerImage.src = 'player.png'; // single player image with transparent background
+playerImage.src = 'player.png'; // single player image, facing right, transparent background
 
 // Player constructor
 class Player {
@@ -54,8 +54,9 @@ class Player {
     this.shootCooldown = 0;
     this.abilityCooldown = 0;
     this.bobOffset = 0;
+    this.jumpPressed = false;
   }
-  
+
   update() {
     // AI behavior
     if (this.isAI) this.aiBehavior();
@@ -73,7 +74,10 @@ class Player {
       this.onGround = true;
       if (this.vy > 0) this.vy = 0;
       // Auto-release ball if jumped without shooting
-      if (ball.heldBy === this && !keys['x']) releaseBall(this);
+      if (ball.heldBy === this && this.jumpPressed) {
+        releaseBall(this, 0.5); // reduce scoring chance
+        this.jumpPressed = false;
+      }
     } else {
       this.onGround = false;
     }
@@ -85,7 +89,12 @@ class Player {
     // Ball holding
     if (ball.heldBy === this) {
       ball.x = this.x + this.width/2;
-      ball.y = this.y + this.height/2 + this.bobOffset;
+      ball.y = this.y + this.height/2 + this.bobOffset - ball.dribbleOffset;
+      if (this.vx !== 0 || !this.onGround) {
+        ball.dribbleOffset = Math.abs(Math.sin(Date.now()/100)*10);
+      } else {
+        ball.dribbleOffset = 0;
+      }
     }
   }
 
@@ -94,24 +103,36 @@ class Player {
   }
 
   aiBehavior() {
-    // Simple AI: move toward ball
-    if (ball.heldBy !== this) {
+    if (!ball.heldBy) {
+      // move toward ball
       if (ball.x < this.x) this.vx = -3;
       else if (ball.x > this.x) this.vx = 3;
       else this.vx = 0;
+    } else if (ball.heldBy !== this) {
+      // defend
+      if (ball.heldBy.x < this.x) this.vx = -3;
+      else this.vx = 3;
+      // block if near
+      if (Math.abs(this.x - ball.heldBy.x) < 50 && this.onGround && Math.random() < 0.01) {
+        this.vy = -15; // jump to block
+        this.onGround = false;
+      }
     } else {
       this.vx = 0;
-      // Auto shoot if near hoop
-      if (Math.abs(this.x - hoop.x) < 50 && this.onGround) {
-        shootBall(this);
-      }
+      // auto shoot if near hoop
+      if (Math.abs(this.x - hoop.x) < 50 && this.onGround) shootBall(this);
     }
   }
 }
 
-function releaseBall(player) {
+function releaseBall(player, accuracy=1) {
   ball.heldBy = null;
-  ball.vy = -10;
+  let dx = hoop.x - player.x;
+  let dy = hoop.y - player.y;
+  let dist = Math.sqrt(dx*dx + dy*dy);
+  let power = 12 * accuracy;
+  ball.vx = dx/dist*power;
+  ball.vy = dy/dist*power;
 }
 
 function shootBall(player) {
@@ -120,8 +141,10 @@ function shootBall(player) {
     let dx = hoop.x - player.x;
     let dy = hoop.y - player.y;
     let dist = Math.sqrt(dx*dx + dy*dy);
-    ball.vx = dx/dist*12;
-    ball.vy = dy/dist*12;
+    let chance = dist < 200 ? 0.8 : 0.6; // 2pt vs 3pt range
+    let power = 12 * chance;
+    ball.vx = dx/dist*power;
+    ball.vy = dy/dist*power;
   }
 }
 
@@ -134,7 +157,7 @@ function activateAbility(player) {
     ball.vx = 0;
     ball.vy = 0;
   } else if (player.ability === 'shield') {
-    // simple temporary shield visual
+    // temporary shield placeholder
   } else if (player.ability === 'alley') {
     ball.x = hoop.x;
     ball.y = hoop.y - 100;
@@ -152,32 +175,29 @@ window.addEventListener('keyup', e => {
   keys[e.key] = false;
 });
 
-// Touch for mobile (simple joystick)
+// Touch for mobile
 let touchX = null;
-let touchY = null;
 canvas.addEventListener('touchstart', e => {
   let t = e.touches[0];
   touchX = t.clientX;
-  touchY = t.clientY;
 });
 canvas.addEventListener('touchmove', e => {
   let t = e.touches[0];
   let dx = t.clientX - touchX;
-  if (dx > 10) keys['ArrowRight'] = true;
-  else if (dx < -10) keys['ArrowLeft'] = true;
+  keys['ArrowRight'] = dx > 10;
+  keys['ArrowLeft'] = dx < -10;
 });
 canvas.addEventListener('touchend', e => {
   keys['ArrowRight'] = keys['ArrowLeft'] = false;
 });
 
-// Create players
-players.push(new Player(100, height-150, false, 'mega')); // user
-players.push(new Player(width-200, height-150, true, 'shield')); // AI
+// Players
+players.push(new Player(100, height-150, false, 'mega'));
+players.push(new Player(width-200, height-150, true, 'shield'));
 
 function gameLoop() {
   ctx.clearRect(0, 0, width, height);
 
-  // Controls
   let user = players[0];
   user.vx = 0;
   if (keys['ArrowLeft']) user.vx = -5;
@@ -185,15 +205,12 @@ function gameLoop() {
   if (keys['ArrowUp'] && user.onGround && user.jumpCooldown <= 0) {
     user.vy = -15;
     user.onGround = false;
+    user.jumpPressed = true;
     user.jumpCooldown = 20;
   }
   if (keys['x']) shootBall(user);
   if (keys['z']) activateAbility(user);
-  if (keys['ArrowDown']) {
-    // pump fake animation (no real effect here)
-  }
 
-  // Update cooldowns
   user.jumpCooldown = Math.max(0, user.jumpCooldown-1);
   user.shootCooldown = Math.max(0, user.shootCooldown-1);
   user.abilityCooldown = Math.max(0, user.abilityCooldown-1);
@@ -203,14 +220,13 @@ function gameLoop() {
 
   // Ball physics
   if (!ball.heldBy) {
-    ball.vy += 0.5; // gravity
+    ball.vy += 0.5;
     ball.x += ball.vx;
     ball.y += ball.vy;
 
-    // Floor collision
     if (ball.y + ball.radius > height-50) {
       ball.y = height-50-ball.radius;
-      ball.vy *= -0.5; // bounce
+      ball.vy *= -0.5;
       if (Math.abs(ball.vy) < 1) ball.vy = 0;
     }
   }
@@ -233,18 +249,12 @@ function gameLoop() {
 
 gameLoop();
 
-// Fullscreen toggle
+// Fullscreen
 function toggleFullscreen() {
-  if (!document.fullscreenElement) {
-    canvas.requestFullscreen();
-  } else {
-    document.exitFullscreen();
-  }
+  if (!document.fullscreenElement) canvas.requestFullscreen();
+  else document.exitFullscreen();
 }
-
-document.addEventListener('keydown', e => {
-  if (e.key === 'f') toggleFullscreen();
-});
+document.addEventListener('keydown', e => { if (e.key === 'f') toggleFullscreen(); });
 
 // Resize
 window.addEventListener('resize', () => {
