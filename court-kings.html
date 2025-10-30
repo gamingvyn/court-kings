@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Court Kings</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background: #222;
+    touch-action: none;
+  }
+  canvas {
+    display: block;
+    margin: 0 auto;
+    background: #4CAF50;
+  }
+</style>
+</head>
+<body>
+<canvas id="gameCanvas"></canvas>
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+let width = window.innerWidth;
+let height = window.innerHeight;
+canvas.width = width;
+canvas.height = height;
+
+const keys = {};
+const players = [];
+const ball = { x: width/2, y: height/2, radius: 12, heldBy: null, vy: 0, bouncing: true };
+const hoop = { x: width-150, y: height/2 - 50, width: 10, height: 100 };
+
+const playerImage = new Image();
+playerImage.src = 'player.png'; // single player image with transparent background
+
+// Player constructor
+class Player {
+  constructor(x, y, isAI=false, ability=null) {
+    this.x = x;
+    this.y = y;
+    this.vx = 0;
+    this.vy = 0;
+    this.width = 50;
+    this.height = 100;
+    this.onGround = true;
+    this.isAI = isAI;
+    this.ability = ability; // "mega", "shield", "alley"
+    this.jumpCooldown = 0;
+    this.shootCooldown = 0;
+    this.abilityCooldown = 0;
+    this.bobOffset = 0;
+  }
+  
+  update() {
+    // AI behavior
+    if (this.isAI) this.aiBehavior();
+
+    // Movement
+    this.x += this.vx;
+    this.y += this.vy;
+
+    // Gravity
+    if (!this.onGround) this.vy += 0.8;
+
+    // Ground collision
+    if (this.y + this.height >= height - 50) {
+      this.y = height - 50 - this.height;
+      this.onGround = true;
+      if (this.vy > 0) this.vy = 0;
+      // Auto-release ball if jumped without shooting
+      if (ball.heldBy === this && !keys['x']) releaseBall(this);
+    } else {
+      this.onGround = false;
+    }
+
+    // Bobbing for leg animation
+    if (this.vx !== 0) this.bobOffset = Math.sin(Date.now()/100)*5;
+    else this.bobOffset = 0;
+
+    // Ball holding
+    if (ball.heldBy === this) {
+      ball.x = this.x + this.width/2;
+      ball.y = this.y + this.height/2 + this.bobOffset;
+    }
+  }
+
+  draw() {
+    ctx.drawImage(playerImage, this.x, this.y + this.bobOffset, this.width, this.height);
+  }
+
+  aiBehavior() {
+    // Simple AI: move toward ball
+    if (ball.heldBy !== this) {
+      if (ball.x < this.x) this.vx = -3;
+      else if (ball.x > this.x) this.vx = 3;
+      else this.vx = 0;
+    } else {
+      this.vx = 0;
+      // Auto shoot if near hoop
+      if (Math.abs(this.x - hoop.x) < 50 && this.onGround) {
+        shootBall(this);
+      }
+    }
+  }
+}
+
+function releaseBall(player) {
+  ball.heldBy = null;
+  ball.vy = -10;
+}
+
+function shootBall(player) {
+  if (ball.heldBy === player) {
+    ball.heldBy = null;
+    let dx = hoop.x - player.x;
+    let dy = hoop.y - player.y;
+    let dist = Math.sqrt(dx*dx + dy*dy);
+    ball.vx = dx/dist*12;
+    ball.vy = dy/dist*12;
+  }
+}
+
+function activateAbility(player) {
+  if (!player.ability) return;
+  if (player.abilityCooldown > 0) return;
+  if (player.ability === 'mega') {
+    ball.x = hoop.x;
+    ball.y = hoop.y - 30;
+    ball.vx = 0;
+    ball.vy = 0;
+  } else if (player.ability === 'shield') {
+    // simple temporary shield visual
+  } else if (player.ability === 'alley') {
+    ball.x = hoop.x;
+    ball.y = hoop.y - 100;
+    ball.vx = 0;
+    ball.vy = 0;
+  }
+  player.abilityCooldown = 300;
+}
+
+// Input
+window.addEventListener('keydown', e => {
+  keys[e.key] = true;
+});
+window.addEventListener('keyup', e => {
+  keys[e.key] = false;
+});
+
+// Touch for mobile (simple joystick)
+let touchX = null;
+let touchY = null;
+canvas.addEventListener('touchstart', e => {
+  let t = e.touches[0];
+  touchX = t.clientX;
+  touchY = t.clientY;
+});
+canvas.addEventListener('touchmove', e => {
+  let t = e.touches[0];
+  let dx = t.clientX - touchX;
+  if (dx > 10) keys['ArrowRight'] = true;
+  else if (dx < -10) keys['ArrowLeft'] = true;
+});
+canvas.addEventListener('touchend', e => {
+  keys['ArrowRight'] = keys['ArrowLeft'] = false;
+});
+
+// Create players
+players.push(new Player(100, height-150, false, 'mega')); // user
+players.push(new Player(width-200, height-150, true, 'shield')); // AI
+
+function gameLoop() {
+  ctx.clearRect(0, 0, width, height);
+
+  // Controls
+  let user = players[0];
+  user.vx = 0;
+  if (keys['ArrowLeft']) user.vx = -5;
+  if (keys['ArrowRight']) user.vx = 5;
+  if (keys['ArrowUp'] && user.onGround && user.jumpCooldown <= 0) {
+    user.vy = -15;
+    user.onGround = false;
+    user.jumpCooldown = 20;
+  }
+  if (keys['x']) shootBall(user);
+  if (keys['z']) activateAbility(user);
+  if (keys['ArrowDown']) {
+    // pump fake animation (no real effect here)
+  }
+
+  // Update cooldowns
+  user.jumpCooldown = Math.max(0, user.jumpCooldown-1);
+  user.shootCooldown = Math.max(0, user.shootCooldown-1);
+  user.abilityCooldown = Math.max(0, user.abilityCooldown-1);
+
+  // Update players
+  for (let p of players) p.update();
+
+  // Ball physics
+  if (!ball.heldBy) {
+    ball.vy += 0.5; // gravity
+    ball.x += ball.vx;
+    ball.y += ball.vy;
+
+    // Floor collision
+    if (ball.y + ball.radius > height-50) {
+      ball.y = height-50-ball.radius;
+      ball.vy *= -0.5; // bounce
+      if (Math.abs(ball.vy) < 1) ball.vy = 0;
+    }
+  }
+
+  // Draw hoop
+  ctx.fillStyle = 'orange';
+  ctx.fillRect(hoop.x, hoop.y, hoop.width, hoop.height);
+
+  // Draw ball
+  ctx.fillStyle = 'yellow';
+  ctx.beginPath();
+  ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI*2);
+  ctx.fill();
+
+  // Draw players
+  for (let p of players) p.draw();
+
+  requestAnimationFrame(gameLoop);
+}
+
+gameLoop();
+
+// Fullscreen toggle
+function toggleFullscreen() {
+  if (!document.fullscreenElement) {
+    canvas.requestFullscreen();
+  } else {
+    document.exitFullscreen();
+  }
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'f') toggleFullscreen();
+});
+
+// Resize
+window.addEventListener('resize', () => {
+  width = window.innerWidth;
+  height = window.innerHeight;
+  canvas.width = width;
+  canvas.height = height;
+  hoop.x = width-150;
+  hoop.y = height/2-50;
+});
+</script>
+</body>
+</html>
