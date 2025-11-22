@@ -4,7 +4,7 @@
    - Points system: wins/losses affect points
    - Rank: Bronze → Divine, each with 3 tiers
    - Points gaps increase per rank
-   - Manual test buttons included
+   - Rank button uses inline SVG star (no PNG needed)
 ====================================================== */
 
 const ranks = ["Bronze","Silver","Gold","Diamond","Legend","Mythic","Divine"];
@@ -20,7 +20,6 @@ function loadRank() {
         try { return JSON.parse(stored); } 
         catch(e){ console.warn("Failed parsing rank:", e); }
     }
-    // Default starting rank
     return { points: 0, rankIndex: 0, tier: 1 };
 }
 
@@ -49,7 +48,6 @@ function calculateRankFromPoints(points) {
         }
     }
 
-    // Cap at Divine III
     if (rankIndex >= ranks.length) {
         rankIndex = ranks.length - 1;
         tier = 3;
@@ -66,15 +64,14 @@ function addLoss() { changePoints(-2); }
 
 function changePoints(delta) {
     const rank = loadRank();
-    rank.points = Math.max(0, (rank.points || 0) + delta); // cannot go below 0
+    rank.points = Math.max(0, (rank.points || 0) + delta);
 
-    // Update rank/tier
     const newRank = calculateRankFromPoints(rank.points);
     rank.rankIndex = newRank.rankIndex;
     rank.tier = newRank.tier;
 
     saveRank(rank);
-    updatePopup(); // refresh popup if open
+    updatePopup();
     return rank;
 }
 
@@ -109,13 +106,17 @@ function updatePopup() {
 // Inject Rank Button and Popup
 // ----------------------
 function setupRankUI() {
-    // Find container for top-right buttons
     const container = document.getElementById("rank-container") || createRankContainer();
 
-    // Create Rank Button
+    // Create Rank Button with inline SVG star
     const btn = document.createElement("button");
     btn.id = "rank-btn";
     btn.title = "Rank";
+    btn.innerHTML = `
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="gold" stroke="black" stroke-width="1">
+          <path d="M12 2 L15 9 H22 L17 14 L18 21 L12 17 L6 21 L7 14 L2 9 H9 Z"/>
+        </svg>
+    `;
     container.appendChild(btn);
 
     // Create Popup
@@ -145,7 +146,6 @@ function createRankContainer() {
     container.id = "rank-container";
     container.style.display = "inline-block";
     container.style.marginLeft = "8px"; // space from Achievements
-    // Try to find existing UI container
     const topRight = document.querySelector("#ui-buttons") || document.body;
     topRight.appendChild(container);
     return container;
