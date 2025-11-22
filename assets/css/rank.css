@@ -1,0 +1,41 @@
+/* ======================================================
+   rank.css
+   Styling for Rank button and popup
+====================================================== */
+
+#rank-btn {
+    width: 40px;
+    height: 40px;
+    background: url('../atlases/x1/ach_rank.png') no-repeat center center;
+    background-size: contain;
+    border: none;
+    cursor: pointer;
+}
+
+#rank-btn:hover {
+    filter: brightness(1.2);
+}
+
+#rank-popup {
+    display: none;
+    position: fixed;
+    top: 20%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.85);
+    color: #fff;
+    border-radius: 8px;
+    padding: 16px;
+    text-align: center;
+    z-index: 1000;
+}
+
+#rank-popup h3 {
+    margin-top: 0;
+}
+
+#rank-popup button {
+    margin: 4px;
+    padding: 6px 12px;
+    cursor: pointer;
+}
