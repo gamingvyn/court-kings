@@ -1,6 +1,9 @@
 /* ======================================================
    rank.js
-   Full Rank System for Court-Kings with Progress Bar
+   Automatic Rank System for Court-Kings
+   - Updates points and rank automatically on game results
+   - Progress bar shows progress to next tier
+   - In-screen top-right button
 ====================================================== */
 
 const ranks = ["Bronze","Silver","Gold","Diamond","Legend","Mythic","Divine"];
@@ -41,9 +44,6 @@ function calculateRankFromPoints(points) {
 // ----------------------
 // Points Modification
 // ----------------------
-function addWin() { changePoints(3); }
-function addLoss() { changePoints(-2); }
-
 function changePoints(delta) {
     const rank = loadRank();
     rank.points = Math.max(0,(rank.points||0)+delta);
@@ -65,15 +65,12 @@ function getRankString(rank) {
     return `${ranks[rank.rankIndex]} ${tierRoman[rank.tier-1]} (${rank.points} pts)`;
 }
 
-// Calculate progress percentage to next tier
 function getProgressPercent(rank) {
     const currentRankGap = tierGaps[rank.rankIndex];
     const pointsIntoTier = rank.points - getPointsForTierStart(rank);
-    const percent = Math.min((pointsIntoTier/currentRankGap)*100, 100);
-    return percent;
+    return Math.min((pointsIntoTier/currentRankGap)*100, 100);
 }
 
-// Calculate points at start of current tier
 function getPointsForTierStart(rank) {
     let total = 0;
     for(let i=0;i<rank.rankIndex;i++){
@@ -124,8 +121,6 @@ function setupRankUI() {
         <div id="rank-progress-container">
             <div id="rank-progress-bar"></div>
         </div>
-        <button id="rank-win-btn">Test Win (+3)</button>
-        <button id="rank-loss-btn">Test Loss (-2)</button>
         <button id="rank-close-btn">Close</button>
     `;
     container.appendChild(popup);
@@ -133,8 +128,28 @@ function setupRankUI() {
     // Event listeners
     btn.addEventListener("click", showRankPopup);
     document.getElementById("rank-close-btn").addEventListener("click", closeRankPopup);
-    document.getElementById("rank-win-btn").addEventListener("click", () => addWin());
-    document.getElementById("rank-loss-btn").addEventListener("click", () => addLoss());
+
+    // Hook automatic updates
+    setupGameEventHook();
 }
 
+// ----------------------
+// Automatic Game Result Hook
+// ----------------------
+function setupGameEventHook() {
+    // Replace this with your actual game event listener
+    // Example: Game dispatches "GAME_OVER" with result info
+    document.getElementById("content").addEventListener("GAME_OVER", function(e){
+        // e.detail.result should be "win" or "loss"
+        if(e.detail && e.detail.result === "win"){
+            changePoints(3);
+        } else {
+            changePoints(-2);
+        }
+    });
+}
+
+// ----------------------
+// Initialize
+// ----------------------
 document.addEventListener("DOMContentLoaded", setupRankUI);
