@@ -4,7 +4,8 @@
    - Points system: wins/losses affect points
    - Rank: Bronze → Divine, each with 3 tiers
    - Points gaps increase per rank
-   - Rank button uses inline SVG star (no PNG needed)
+   - Rank button uses inline SVG star
+   - Popup now inside game screen
 ====================================================== */
 
 const ranks = ["Bronze","Silver","Gold","Diamond","Legend","Mythic","Divine"];
@@ -119,7 +120,7 @@ function setupRankUI() {
     `;
     container.appendChild(btn);
 
-    // Create Popup
+    // Create Popup inside the same container
     const popup = document.createElement("div");
     popup.id = "rank-popup";
     popup.innerHTML = `
@@ -129,7 +130,7 @@ function setupRankUI() {
         <button id="rank-loss-btn">Test Loss (-2)</button>
         <button id="rank-close-btn">Close</button>
     `;
-    document.body.appendChild(popup);
+    container.appendChild(popup);
 
     // Event Listeners
     btn.addEventListener("click", showRankPopup);
@@ -145,7 +146,10 @@ function createRankContainer() {
     const container = document.createElement("div");
     container.id = "rank-container";
     container.style.display = "inline-block";
-    container.style.marginLeft = "8px"; // space from Achievements
+    container.style.position = "absolute"; // ensure it's in-game
+    container.style.top = "10px";
+    container.style.right = "10px";
+    container.style.zIndex = "1000";
     const topRight = document.querySelector("#ui-buttons") || document.body;
     topRight.appendChild(container);
     return container;
