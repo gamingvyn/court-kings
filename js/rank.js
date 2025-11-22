@@ -1,10 +1,10 @@
 /* ======================================================
    rank.js
    Automatic Rank System integrated with actual game results
-   - Updates points and rank automatically on game result
+   - Updates points and rank automatically
    - Progress bar shows progress to next tier
-   - Displays points needed to next tier
-   - In-screen top-right button
+   - Shows points needed to next tier
+   - Top-right button inside game frame
 ====================================================== */
 
 const ranks = ["Bronze","Silver","Gold","Diamond","Legend","Mythic","Divine"];
@@ -16,36 +16,35 @@ const tiersPerRank = 3;
 // ----------------------
 function loadRank() {
     const stored = localStorage.getItem("playerRank");
-    if (stored) {
-        try { return JSON.parse(stored); } 
-        catch(e){ console.warn("Failed parsing rank:", e); }
+    if(stored){
+        try { return JSON.parse(stored); } catch(e){ console.warn("Failed parsing rank:", e);}
     }
     return { points: 0, rankIndex: 0, tier: 1 };
 }
 
-function saveRank(rank) {
+function saveRank(rank){
     localStorage.setItem("playerRank", JSON.stringify(rank));
 }
 
 // ----------------------
 // Calculate Rank/Tier From Points
 // ----------------------
-function calculateRankFromPoints(points) {
+function calculateRankFromPoints(points){
     let remaining = points, rankIndex = 0, tier = 1;
-    for (let i=0;i<ranks.length;i++) {
+    for(let i=0;i<ranks.length;i++){
         const gap = tierGaps[i];
         const rankPoints = gap*tiersPerRank;
-        if (remaining >= rankPoints) remaining -= rankPoints, rankIndex++;
+        if(remaining >= rankPoints) remaining -= rankPoints, rankIndex++;
         else { tier = Math.floor(remaining/gap)+1; break; }
     }
-    if (rankIndex >= ranks.length) rankIndex = ranks.length-1, tier=3;
+    if(rankIndex >= ranks.length) rankIndex = ranks.length-1, tier = 3;
     return { rankIndex, tier };
 }
 
 // ----------------------
 // Points Modification
 // ----------------------
-function changePoints(delta) {
+function changePoints(delta){
     const rank = loadRank();
     rank.points = Math.max(0,(rank.points||0)+delta);
 
@@ -61,18 +60,18 @@ function changePoints(delta) {
 // ----------------------
 // Display Helpers
 // ----------------------
-function getRankString(rank) {
+function getRankString(rank){
     const tierRoman = ["I","II","III"];
     return `${ranks[rank.rankIndex]} ${tierRoman[rank.tier-1]} (${rank.points} pts)`;
 }
 
-function getProgressPercent(rank) {
+function getProgressPercent(rank){
     const currentRankGap = tierGaps[rank.rankIndex];
     const pointsIntoTier = rank.points - getPointsForTierStart(rank);
     return Math.min((pointsIntoTier/currentRankGap)*100, 100);
 }
 
-function getPointsForTierStart(rank) {
+function getPointsForTierStart(rank){
     let total = 0;
     for(let i=0;i<rank.rankIndex;i++){
         total += tierGaps[i]*tiersPerRank;
@@ -82,22 +81,22 @@ function getPointsForTierStart(rank) {
 }
 
 // Points to next tier
-function getPointsToNextTier(rank) {
+function getPointsToNextTier(rank){
     if(rank.rankIndex === ranks.length-1 && rank.tier === 3) return 0;
-    const nextTierStart = getPointsForTierStart({ 
-        rankIndex: rank.rankIndex, 
-        tier: rank.tier+1 > 3 ? rank.rankIndex+1 : rank.tier+1 
-    });
+    let nextRankIndex = rank.rankIndex;
+    let nextTier = rank.tier+1;
+    if(nextTier > 3) { nextRankIndex +=1; nextTier = 1; }
+    const nextTierStart = getPointsForTierStart({rankIndex: nextRankIndex, tier: nextTier});
     return nextTierStart - rank.points;
 }
 
 // ----------------------
 // Popup UI
 // ----------------------
-function showRankPopup() { document.getElementById("rank-popup").style.display="block"; }
-function closeRankPopup() { document.getElementById("rank-popup").style.display="none"; }
+function showRankPopup(){ document.getElementById("rank-popup").style.display="block"; }
+function closeRankPopup(){ document.getElementById("rank-popup").style.display="none"; }
 
-function updatePopup() {
+function updatePopup(){
     const rank = loadRank();
     const display = document.getElementById("rank-display");
     if(display) display.textContent = getRankString(rank);
@@ -108,23 +107,27 @@ function updatePopup() {
     const nextTierText = document.getElementById("rank-next-tier");
     if(nextTierText){
         const pointsToNext = getPointsToNextTier(rank);
-        if(pointsToNext === 0){
-            nextTierText.textContent = "Max Rank Reached";
-        } else {
-            nextTierText.textContent = `${pointsToNext} pts to next tier`;
-        }
+        nextTierText.textContent = pointsToNext === 0 ? "Max Rank Reached" : `${pointsToNext} pts to next tier`;
     }
 }
 
 // ----------------------
-// Inject UI
+// Inject UI into game frame
 // ----------------------
-function setupRankUI() {
+function setupRankUI(){
+    const gameContainer = document.getElementById("content");
     const container = document.createElement("div");
     container.id = "rank-container";
-    document.body.appendChild(container);
 
-    // Star button
+    // position inside game frame
+    container.style.position = "absolute";
+    container.style.top = "10px";
+    container.style.right = "10px";
+    container.style.zIndex = 1000;
+
+    gameContainer.appendChild(container);
+
+    // Star Button
     const btn = document.createElement("button");
     btn.id = "rank-btn";
     btn.title = "Rank";
@@ -147,41 +150,32 @@ function setupRankUI() {
     `;
     container.appendChild(popup);
 
-    // Event listeners
     btn.addEventListener("click", showRankPopup);
     document.getElementById("rank-close-btn").addEventListener("click", closeRankPopup);
 
-    // Hook automatic updates
     setupGameIntegration();
 }
 
 // ----------------------
-// Integrate with game events
+// Hook into game events for automatic points
 // ----------------------
-function setupGameIntegration() {
-    // Wrap GD_OPTIONS.onEvent to detect game over
+function setupGameIntegration(){
+    // Wrap GD_OPTIONS.onEvent for SDK_GAME_OVER
     if(window.GD_OPTIONS && window.GD_OPTIONS.onEvent){
         const originalOnEvent = window.GD_OPTIONS.onEvent;
         window.GD_OPTIONS.onEvent = function(event){
-            originalOnEvent(event); // keep existing behavior
-
+            originalOnEvent(event);
             if(event.name === "SDK_GAME_OVER"){
-                if(event.detail && event.detail.result === "win"){
-                    changePoints(3);
-                } else {
-                    changePoints(-2);
-                }
+                if(event.detail && event.detail.result === "win") changePoints(3);
+                else changePoints(-2);
             }
         }
     }
 
-    // Fallback: listen for custom GAME_OVER events dispatched by game
+    // Fallback: listen for custom GAME_OVER events
     document.getElementById("content").addEventListener("GAME_OVER", function(e){
-        if(e.detail && e.detail.result === "win"){
-            changePoints(3);
-        } else {
-            changePoints(-2);
-        }
+        if(e.detail && e.detail.result === "win") changePoints(3);
+        else changePoints(-2);
     });
 }
 
