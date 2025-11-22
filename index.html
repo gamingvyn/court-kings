@@ -5,16 +5,16 @@
     <meta charset="utf-8" />
     <meta http-equiv="x-ua-compatible" content="ie=edge">
     <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no, shrink-to-fit=no" />
-    
+
     <!-- Main Game CSS -->
     <link rel="stylesheet" href="assets/css/app.css" type="text/css" />
-    
+
     <!-- Rank System CSS -->
     <link rel="stylesheet" href="css/rank.css" type="text/css" />
-    
+
     <title>Basketball Stars Unblocked</title>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-    
+
     <!-- Fullscreen Script -->
     <script src="js/fullscreen.js"></script>
 </head>
@@ -79,8 +79,25 @@
         }(document, 'script', 'gamedistribution-jssdk'));
     </script>
 
+    <!-- Game core -->
     <script type="text/javascript" src="basketball_legends_2019.min.js"></script>
     <script src="js/analytics_ubg_v1_4.js"></script>
+
+    <!-- Automatic SDK_GAME_OVER Hook -->
+    <script>
+        // Example hook for game-over
+        if(window.gameOver){
+            const originalGameOver = window.gameOver;
+            window.gameOver = function(result){
+                originalGameOver(result);
+
+                // Dispatch SDK_GAME_OVER for rank system
+                document.getElementById("content").dispatchEvent(
+                    new CustomEvent("SDK_GAME_OVER", { detail: { result: result } })
+                );
+            };
+        }
+    </script>
 
     <!-- Rank System Script -->
     <script src="js/rank.js"></script>
