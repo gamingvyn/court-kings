@@ -1,6 +1,7 @@
 /* ======================================================
    rank.css
    Styling for Rank button, popup, and progress bar
+   Includes points-to-next-tier display
 ====================================================== */
 
 /* Container for the rank button and popup */
@@ -38,11 +39,13 @@
     text-align: center;
     z-index: 1000;
     width: 180px;
+    font-family: Arial, sans-serif;
 }
 
 #rank-popup h3 {
     margin-top: 0;
     font-size: 16px;
+    font-weight: bold;
 }
 
 /* Close button */
@@ -51,6 +54,15 @@
     padding: 4px 8px;
     cursor: pointer;
     font-size: 14px;
+    border-radius: 4px;
+    border: none;
+    background-color: gold;
+    color: #000;
+    font-weight: bold;
+}
+
+#rank-popup button:hover {
+    background-color: #ffdd33;
 }
 
 /* Progress Bar Container */
@@ -69,4 +81,12 @@
     background-color: gold;
     border-radius: 4px;
     transition: width 0.3s ease-in-out;
+}
+
+/* Points to Next Tier */
+#rank-next-tier {
+    font-size: 12px;
+    color: #ffd700; /* gold-ish */
+    margin-top: 2px;
+    font-weight: bold;
 }
