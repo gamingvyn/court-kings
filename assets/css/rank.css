@@ -1,25 +1,31 @@
 /* ======================================================
    rank.css
-   Styling for Rank button, popup, and progress bar
-   Includes points-to-next-tier display
+   Styling for Rank button, popup, progress bar
+   Optimized to fit inside game canvas/frame
 ====================================================== */
 
 /* Container for the rank button and popup */
 #rank-container {
-    position: absolute;
-    top: 10px;
-    right: 10px;
+    position: absolute; /* relative to #content */
+    top: 8px;           /* slightly smaller margin */
+    right: 8px;
     z-index: 1000;
+    pointer-events: none; /* allow clicks only on children */
 }
 
 /* Star Button */
 #rank-btn {
-    width: 40px;
-    height: 40px;
+    width: 36px;       /* slightly smaller for tight space */
+    height: 36px;
     border: none;
     background: transparent;
     cursor: pointer;
     padding: 0;
+    pointer-events: auto; /* enable clicks */
+}
+
+#rank-btn svg {
+    display: block;
 }
 
 #rank-btn:hover svg {
@@ -30,30 +36,31 @@
 #rank-popup {
     display: none;
     position: absolute; /* relative to container */
-    top: 50px;          /* slightly below the button */
-    right: 0px;
+    top: 42px;          /* below star button */
+    right: 0;
     background: rgba(0,0,0,0.85);
     color: #fff;
-    border-radius: 8px;
-    padding: 12px;
+    border-radius: 6px;
+    padding: 10px;
     text-align: center;
     z-index: 1000;
-    width: 180px;
+    width: 160px;
     font-family: Arial, sans-serif;
+    pointer-events: auto;
 }
 
 #rank-popup h3 {
-    margin-top: 0;
-    font-size: 16px;
+    margin: 0 0 4px 0;
+    font-size: 14px;
     font-weight: bold;
 }
 
 /* Close button */
 #rank-popup button {
     margin-top: 6px;
-    padding: 4px 8px;
+    padding: 3px 6px;
     cursor: pointer;
-    font-size: 14px;
+    font-size: 12px;
     border-radius: 4px;
     border: none;
     background-color: gold;
@@ -70,8 +77,8 @@
     width: 100%;
     background-color: rgba(255,255,255,0.2);
     border-radius: 4px;
-    height: 12px;
-    margin: 6px 0;
+    height: 10px;
+    margin: 4px 0;
 }
 
 /* Progress Bar Fill */
@@ -85,7 +92,7 @@
 
 /* Points to Next Tier */
 #rank-next-tier {
-    font-size: 12px;
+    font-size: 11px;
     color: #ffd700; /* gold-ish */
     margin-top: 2px;
     font-weight: bold;
