@@ -1,13 +1,14 @@
 /* ======================================================
    rank.js
-   Automatic Rank System for Court-Kings
-   - Updates points and rank automatically on game results
+   Automatic Rank System integrated with actual game results
+   - Updates points and rank automatically on game result
    - Progress bar shows progress to next tier
+   - Displays points needed to next tier
    - In-screen top-right button
 ====================================================== */
 
 const ranks = ["Bronze","Silver","Gold","Diamond","Legend","Mythic","Divine"];
-const tierGaps = [5, 7, 10, 15, 20, 27, 30]; // points per tier
+const tierGaps = [5, 7, 10, 15, 20, 27, 30];
 const tiersPerRank = 3;
 
 // ----------------------
@@ -80,6 +81,16 @@ function getPointsForTierStart(rank) {
     return total;
 }
 
+// Points to next tier
+function getPointsToNextTier(rank) {
+    if(rank.rankIndex === ranks.length-1 && rank.tier === 3) return 0;
+    const nextTierStart = getPointsForTierStart({ 
+        rankIndex: rank.rankIndex, 
+        tier: rank.tier+1 > 3 ? rank.rankIndex+1 : rank.tier+1 
+    });
+    return nextTierStart - rank.points;
+}
+
 // ----------------------
 // Popup UI
 // ----------------------
@@ -93,6 +104,16 @@ function updatePopup() {
 
     const progressBar = document.getElementById("rank-progress-bar");
     if(progressBar) progressBar.style.width = getProgressPercent(rank) + "%";
+
+    const nextTierText = document.getElementById("rank-next-tier");
+    if(nextTierText){
+        const pointsToNext = getPointsToNextTier(rank);
+        if(pointsToNext === 0){
+            nextTierText.textContent = "Max Rank Reached";
+        } else {
+            nextTierText.textContent = `${pointsToNext} pts to next tier`;
+        }
+    }
 }
 
 // ----------------------
@@ -121,6 +142,7 @@ function setupRankUI() {
         <div id="rank-progress-container">
             <div id="rank-progress-bar"></div>
         </div>
+        <div id="rank-next-tier"></div>
         <button id="rank-close-btn">Close</button>
     `;
     container.appendChild(popup);
@@ -130,17 +152,31 @@ function setupRankUI() {
     document.getElementById("rank-close-btn").addEventListener("click", closeRankPopup);
 
     // Hook automatic updates
-    setupGameEventHook();
+    setupGameIntegration();
 }
 
 // ----------------------
-// Automatic Game Result Hook
+// Integrate with game events
 // ----------------------
-function setupGameEventHook() {
-    // Replace this with your actual game event listener
-    // Example: Game dispatches "GAME_OVER" with result info
+function setupGameIntegration() {
+    // Wrap GD_OPTIONS.onEvent to detect game over
+    if(window.GD_OPTIONS && window.GD_OPTIONS.onEvent){
+        const originalOnEvent = window.GD_OPTIONS.onEvent;
+        window.GD_OPTIONS.onEvent = function(event){
+            originalOnEvent(event); // keep existing behavior
+
+            if(event.name === "SDK_GAME_OVER"){
+                if(event.detail && event.detail.result === "win"){
+                    changePoints(3);
+                } else {
+                    changePoints(-2);
+                }
+            }
+        }
+    }
+
+    // Fallback: listen for custom GAME_OVER events dispatched by game
     document.getElementById("content").addEventListener("GAME_OVER", function(e){
-        // e.detail.result should be "win" or "loss"
         if(e.detail && e.detail.result === "win"){
             changePoints(3);
         } else {
