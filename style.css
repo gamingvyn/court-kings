@@ -1,0 +1,20 @@
+body {
+    margin: 0;
+    overflow: hidden;
+    background: linear-gradient(#87cefa, #ffffff);
+    font-family: Arial, sans-serif;
+}
+
+.score {
+    position: absolute;
+    top: 15px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 24px;
+    font-weight: bold;
+    color: #222;
+}
+
+#gameCanvas {
+    display: block;
+}
